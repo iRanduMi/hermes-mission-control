@@ -159,11 +159,11 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
                 </div>
 
                 {/* Activity History */}
-                {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
+                {(task && typeof task === 'object' && 'activity_log' in task) && (task.activity_log as Array<{ timestamp: string; from_status: string; to_status: string }>)?.length > 0 && (
                   <div>
                     <label className="block text-xs font-[510] text-text-secondary mb-1">Activity History</label>
                     <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string }, idx: number) => (
+                      {((task.activity_log) as Array<{ timestamp: string; from_status: string; to_status: string }>).map((entry, idx) => (
                         <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary bg-panel/50 rounded px-2 py-1">
                           <span className="font-mono opacity-60">{new Date(entry.timestamp).toLocaleString()}</span>
                           <span className="truncate">

@@ -14,7 +14,7 @@ import { MoreHorizontal, Calendar, ChevronDown, ArrowUpDown } from 'lucide-react
 import { KANBAN_COLUMNS } from '@/types';
 import { useUpdateTask } from '@/hooks/useTasks';
 
-interface TaskData {
+export interface TaskData {
   id: string;
   title: string;
   description: string;
@@ -54,7 +54,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedTask(task);
+    setSelectedTask(task as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -65,7 +65,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
       id: '',
       title: `${task.title} (copy)`,
       labels: [...task.labels],
-    });
+    } as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -99,11 +99,11 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
       {isHovered && task.description && (
         <div className="absolute z-50 left-full top-0 ml-2 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary">
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
-          {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
+          {task.activity_log && task.activity_log.length > 0 && (
             <div className="mt-3 pt-3 border-t border-panel-border">
               <div className="text-xs font-medium text-text-secondary mb-1.5">Activity History</div>
               <div className="space-y-1">
-                {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string }, idx: number) => (
+                {task.activity_log.map((entry, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary">
                     <span className="font-mono opacity-60 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
                     <span className="truncate">{entry.from_status} → {entry.to_status}</span>
