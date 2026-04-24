@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useKanban } from './KanbanProvider';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +21,7 @@ interface TaskData {
   status: string;
   priority: string;
   labels: string[];
-  activity_log?: Array<{ timestamp: string; from_status: string; to_status: string }>;
+  activity_log?: Array<{ timestamp: string; from_status: string; to_status: string; actor: string }>;
   due_date?: string;
   column_order: number;
 }
@@ -43,7 +43,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 export function KanbanCard({ task, onStatusChanged }: Props) {
   const { setSelectedTask, setIsModalOpen } = useKanban();
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPopoverVisible, setIsPopoverVisible] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const { mutate: updateTask, isPending } = useUpdateTask();
@@ -51,6 +51,59 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     id: `task-${task.id}`,
     disabled: isMobile,
   });
+
+  // Delay close refs to prevent flickering when cursor moves between card and dropdown/popover
+  const popoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (popoverLeaveTimerRef.current) clearTimeout(popoverLeaveTimerRef.current);
+      if (dropdownLeaveTimerRef.current) clearTimeout(dropdownLeaveTimerRef.current);
+    };
+  }, []);
+
+  // Delayed close for card pointer leave — prevents popover flicker when cursor moves to trigger
+  const handleCardPointerLeave = useCallback(() => {
+    popoverLeaveTimerRef.current = setTimeout(() => {
+      setIsPopoverVisible(false);
+    }, 80); // 80ms delay gives cursor time to reach popover without triggering close
+  }, []);
+
+  const handleCardPointerEnter = useCallback(() => {
+    if (popoverLeaveTimerRef.current) {
+      clearTimeout(popoverLeaveTimerRef.current);
+      popoverLeaveTimerRef.current = null;
+    }
+    setIsPopoverVisible(true);
+  }, []);
+
+  // Delayed close for dropdown trigger — prevents dropdown flicker when cursor moves to menu
+  const handleTriggerPointerEnter = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    setIsDropdownOpen(true);
+    if (dropdownLeaveTimerRef.current) {
+      clearTimeout(dropdownLeaveTimerRef.current);
+      dropdownLeaveTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTriggerPointerLeave = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    dropdownLeaveTimerRef.current = setTimeout(() => {
+      setIsDropdownOpen(false);
+    }, 100); // 100ms delay gives cursor time to reach dropdown menu items
+  }, []);
+
+  // Cancel dropdown close timer when cursor enters the menu content
+  const handleMenuPointerEnter = useCallback(() => {
+    if (dropdownLeaveTimerRef.current) {
+      clearTimeout(dropdownLeaveTimerRef.current);
+      dropdownLeaveTimerRef.current = null;
+    }
+    setIsDropdownOpen(true);
+  }, []);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -84,29 +137,27 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
         'group relative p-2.5 sm:p-3 rounded-lg border border-panel-border bg-panel hover:bg-panel-hover cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-70 shadow-xl'
       )}
-      layout
-      initial={{ opacity: 0, scale: 0.95, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      whileHover={{ scale: 1.01 }}
       {...attributes}
       {...listeners}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onPointerEnter={handleCardPointerEnter}
+      onPointerLeave={handleCardPointerLeave}
     >
       {/* Full description + activity history popover */}
-      {isHovered && task.description && (
+      {isPopoverVisible && task.description && (
         <div className="absolute z-50 left-full top-0 ml-2 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary">
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
           {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
             <div className="mt-3 pt-3 border-t border-panel-border">
               <div className="text-xs font-medium text-text-secondary mb-1.5">Activity History</div>
               <div className="space-y-1">
-                {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string }, idx: number) => (
+                {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string; actor: string }, idx: number) => (
                   <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary">
                     <span className="font-mono opacity-60 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
                     <span className="truncate">{entry.from_status} → {entry.to_status}</span>
+                    <span className="shrink-0 text-[10px] text-text-muted opacity-70">by {entry.actor}</span>
                   </div>
                 ))}
               </div>
@@ -195,13 +246,17 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             )}
           </div>
         ) : (
-          <DropdownMenu open={isHovered}>
+          <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <button className="p-1.5 sm:p-1 rounded hover:bg-panel-hover transition-opacity">
+              <button
+                className="p-1.5 sm:p-1 rounded hover:bg-panel-hover transition-opacity"
+                onPointerEnter={handleTriggerPointerEnter}
+                onPointerLeave={handleTriggerPointerLeave}
+              >
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent onPointerEnter={handleMenuPointerEnter} align="end" className="w-40">
               <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate}>Duplicate</DropdownMenuItem>
             </DropdownMenuContent>
