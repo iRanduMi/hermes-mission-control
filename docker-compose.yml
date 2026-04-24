@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - mission-control
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - mission-data:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - mission-control
+    restart: unless-stopped
+
+networks:
+  mission-control:
+    driver: bridge
+
+volumes:
+  mission-data:
+    driver: local

@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+"""
+Mission Control Task CLI
+
+A command-line interface for managing tasks on the Mission Control Kanban board.
+
+Usage:
+    mc-task add "Task title" [--status todo] [--priority high]
+    mc-task list [--status in_progress]
+    mc-task update <id> --status done
+    mc-task delete <id>
+    mc-task show <id>
+"""
+
+import sys
+import os
+import argparse
+from pathlib import Path
+
+# Load .env file if it exists
+env_file = Path(__file__).parent / '.env'
+if env_file.exists():
+    for line in env_file.read_text().splitlines():
+        if line and not line.startswith('#') and '=' in line:
+            key, value = line.split('=', 1)
+            # Remove quotes if present
+            value = value.strip('"\'')
+            if key not in os.environ:  # Don't override existing env vars
+                os.environ[key] = value
+
+# Add the mission control directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from mission_control_client import TaskClient, Task
+
+def format_task(task: Task) -> str:
+    """Format a task for display."""
+    priority_colors = {
+        'low': '',
+        'medium': '',
+        'high': '[HIGH]',
+        'critical': '[CRITICAL]'
+    }
+    
+    prefix = priority_colors.get(task.priority, '')
+    if prefix:
+        prefix = f"{prefix} "
+    
+    return f"#{task.id} {prefix}{task.title} [{task.status}]"
+
+def cmd_add(args):
+    """Add a new task."""
+    client = TaskClient()
+    task = client.create_task(
+        title=args.title,
+        description=args.description or '',
+        status=args.status,
+        priority=args.priority
+    )
+    print(f"✓ Created task: {format_task(task)}")
+    return 0
+
+def cmd_list(args):
+    """List tasks."""
+    client = TaskClient()
+    
+    if args.status:
+        tasks = client.list_tasks(status=args.status)
+    else:
+        tasks = client.list_tasks()
+    
+    if not tasks:
+        print("No tasks found.")
+        return 0
+    
+    # Group by status for better display
+    from collections import defaultdict
+    by_status = defaultdict(list)
+    for task in tasks:
+        by_status[task.status].append(task)
+    
+    # Print grouped
+    for status in ['requested', 'plan_review', 'plan_approved', 'in_progress', 'on_hold', 'deployed', 'declined', 'todo', 'review', 'done']:
+        if status not in by_status:
+            continue
+        
+        print(f"\n📋 {status.upper().replace('_', ' ')}")
+        print("-" * 60)
+        for task in sorted(by_status[status], key=lambda t: t.id):
+            print(f"  {format_task(task)}")
+    
+    return 0
+
+def cmd_show(args):
+    """Show a single task."""
+    client = TaskClient()
+    try:
+        task = client.get_task(args.id)
+        print(f"\n{'='*60}")
+        print(f"Task #{task.id}: {task.title}")
+        print(f"{'='*60}")
+        print(f"  Status:   {task.status}")
+        print(f"  Priority: {task.priority}")
+        if task.description:
+            print(f"\nDescription:")
+            print(f"  {task.description}")
+        print(f"\nCreated: {task.created_at}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+def cmd_update(args):
+    """Update a task."""
+    client = TaskClient()
+    
+    updates = {}
+    if args.title:
+        updates['title'] = args.title
+    if args.description is not None:  # Allow empty string
+        updates['description'] = args.description
+    if args.status:
+        updates['status'] = args.status
+    if args.priority:
+        updates['priority'] = args.priority
+    
+    if not updates:
+        print("No updates specified. Use --title, --description, --status, or --priority.")
+        return 1
+    
+    try:
+        task = client.update_task(args.id, **updates)
+        print(f"✓ Updated task: {format_task(task)}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+def cmd_delete(args):
+    """Delete a task."""
+    client = TaskClient()
+    
+    if not args.force:
+        try:
+            task = client.get_task(args.id)
+            print(f"About to delete: {format_task(task)}")
+            response = input("Confirm? [y/N] ")
+            if response.lower() != 'y':
+                print("Cancelled.")
+                return 0
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+    
+    try:
+        client.delete_task(args.id)
+        print(f"✓ Deleted task #{args.id}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+def cmd_move(args):
+    """Move a task to a different status."""
+    client = TaskClient()
+    
+    try:
+        task = client.move_task(args.id, args.status)
+        print(f"✓ Moved task: {format_task(task)}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Mission Control Task CLI',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s add "Fix login bug" --status in_progress --priority high
+  %(prog)s list --status todo
+  %(prog)s show 42
+  %(prog)s update 42 --status done
+  %(prog)s move 42 review
+  %(prog)s delete 42 --force
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # ADD command
+    add_parser = subparsers.add_parser('add', help='Add a new task')
+    add_parser.add_argument('title', help='Task title')
+    add_parser.add_argument('--description', '-d', help='Task description')
+    add_parser.add_argument('--status', '-s', default='requested',
+                          choices=['requested', 'plan_review', 'plan_approved', 'in_progress', 
+                                   'on_hold', 'deployed', 'declined', 'todo', 'review', 'done'],
+                          help='Task status (default: requested)')
+    add_parser.add_argument('--priority', '-p', default='medium',
+                          choices=['low', 'medium', 'high', 'critical'],
+                          help='Task priority (default: medium)')
+    
+    # LIST command
+    list_parser = subparsers.add_parser('list', help='List tasks')
+    list_parser.add_argument('--status', '-s', help='Filter by status')
+    
+    # SHOW command
+    show_parser = subparsers.add_parser('show', help='Show a single task')
+    show_parser.add_argument('id', type=int, help='Task ID')
+    
+    # UPDATE command
+    update_parser = subparsers.add_parser('update', help='Update a task')
+    update_parser.add_argument('id', type=int, help='Task ID')
+    update_parser.add_argument('--title', '-t', help='New title')
+    update_parser.add_argument('--description', '-d', help='New description')
+    update_parser.add_argument('--status', '-s',
+                              choices=['requested', 'plan_review', 'plan_approved', 'in_progress', 
+                                       'on_hold', 'deployed', 'declined', 'todo', 'review', 'done'],
+                              help='New status')
+    update_parser.add_argument('--priority', '-p',
+                              choices=['low', 'medium', 'high', 'critical'],
+                              help='New priority')
+    
+    # DELETE command
+    delete_parser = subparsers.add_parser('delete', help='Delete a task')
+    delete_parser.add_argument('id', type=int, help='Task ID')
+    delete_parser.add_argument('--force', '-f', action='store_true', help='Skip confirmation prompt')
+    
+    # MOVE command (shorthand for update status)
+    move_parser = subparsers.add_parser('move', help='Move task to different status')
+    move_parser.add_argument('id', type=int, help='Task ID')
+    move_parser.add_argument('status',
+                            choices=['requested', 'plan_review', 'plan_approved', 'in_progress', 
+                                     'on_hold', 'deployed', 'declined', 'todo', 'review', 'done'],
+                            help='New status')
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return 0
+    
+    # Dispatch to command handlers
+    commands = {
+        'add': cmd_add,
+        'list': cmd_list,
+        'show': cmd_show,
+        'update': cmd_update,
+        'delete': cmd_delete,
+        'move': cmd_move,
+    }
+    
+    return commands[args.command](args)
+
+if __name__ == '__main__':
+    sys.exit(main())
