@@ -155,11 +155,12 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       {...attributes}
       {...listeners}
-      onPointerEnter={handleCardPointerEnter}
-      onPointerLeave={handleCardPointerLeave}
+      onPointerEnter={isMobile ? undefined : handleCardPointerEnter}
+      onPointerLeave={isMobile ? undefined : handleCardPointerLeave}
+      onClick={isMobile ? () => { setSelectedTask(task as unknown as Record<string, unknown>); setIsModalOpen(true); } : undefined}
     >
-      {/* Full description + activity history popover */}
-      {isPopoverVisible && task.description && (
+      {/* Full description + activity history popover (desktop only) */}
+      {!isMobile && isPopoverVisible && task.description && (
         <div className="absolute z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:left-full sm:top-0 sm:translate-x-0 sm:translate-y-0 sm:ml-2">
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
           {(task.activity_log && task.activity_log.length > 0) && (
@@ -233,9 +234,9 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
                 e.stopPropagation();
                 handleEdit();
               }}
-              className="p-1.5 rounded hover:bg-panel-hover transition-colors"
+              className="p-2 rounded hover:bg-panel-hover transition-colors active:bg-panel-hover"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <Pencil className="w-4 h-4" />
             </button>
             <div className="relative">
               <button
@@ -244,11 +245,11 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
                   setIsDropdownOpen(!isDropdownOpen);
                 }}
                 disabled={isPending}
-                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-3 py-2 text-xs font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 active:bg-panel-hover transition-colors disabled:opacity-50"
               >
-              <ArrowUpDown className="w-3 h-3" />
+              <ArrowUpDown className="w-4 h-4" />
               <span>Status</span>
-              <ChevronDown className={cn("w-3 h-3 transition-transform", isDropdownOpen && "rotate-180")} />
+              <ChevronDown className={cn("w-4 h-4 transition-transform", isDropdownOpen && "rotate-180")} />
             </button>
             {isDropdownOpen && (
               <div
@@ -261,7 +262,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
                     onClick={() => handleStatusChange(col.id)}
                     disabled={task.status === col.id || isPending}
                     className={cn(
-                      "flex items-center gap-2 w-full px-3 py-2 text-left text-xs transition-colors",
+                      "flex items-center gap-2 w-full px-3 py-3 text-left text-xs transition-colors",
                       task.status === col.id
                         ? "bg-accent-subtle text-text-primary font-medium"
                         : "hover:bg-panel-hover text-text-secondary",
