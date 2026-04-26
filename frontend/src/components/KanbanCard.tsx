@@ -10,11 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Calendar, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { MoreHorizontal, Calendar, ChevronDown, ArrowUpDown, Pencil } from 'lucide-react';
 import { KANBAN_COLUMNS } from '@/types';
 import { useUpdateTask } from '@/hooks/useTasks';
 
-interface TaskData {
+export interface TaskData {
   id: string;
   title: string;
   description: string;
@@ -22,6 +22,8 @@ interface TaskData {
   priority: string;
   labels: string[];
   activity_log?: Array<{ timestamp: string; from_status: string; to_status: string; actor: string }>;
+  owner?: string;
+  sub_status?: string;
   due_date?: string;
   column_order: number;
 }
@@ -39,6 +41,18 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: 'bg-medium/15 text-medium border-medium/20',
   high: 'bg-high/15 text-high border-high/20',
   critical: 'bg-critical/15 text-critical border-critical/20',
+};
+
+const OWNER_COLORS: Record<string, string> = {
+  Hermes: '#58a6ff',
+  Dex: '#a371f7',
+  Jared: '#3fb950',
+};
+
+const OWNER_ROLES: Record<string, string> = {
+  Hermes: 'Planner',
+  Dex: 'Builder',
+  Jared: 'Reviewer',
 };
 
 export function KanbanCard({ task, onStatusChanged }: Props) {
@@ -105,9 +119,8 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     setIsDropdownOpen(true);
   }, []);
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedTask(task);
+  const handleEdit = () => {
+    setSelectedTask(task as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -118,7 +131,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
       id: '',
       title: `${task.title} (copy)`,
       labels: [...task.labels],
-    });
+    } as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -147,13 +160,13 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     >
       {/* Full description + activity history popover */}
       {isPopoverVisible && task.description && (
-        <div className="absolute z-50 left-full top-0 ml-2 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary">
+        <div className="absolute z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:left-full sm:top-0 sm:translate-x-0 sm:translate-y-0 sm:ml-2">
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
-          {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
+          {(task.activity_log && task.activity_log.length > 0) && (
             <div className="mt-3 pt-3 border-t border-panel-border">
               <div className="text-xs font-medium text-text-secondary mb-1.5">Activity History</div>
               <div className="space-y-1">
-                {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string; actor: string }, idx: number) => (
+                {task.activity_log.map((entry: { timestamp: string; from_status: string; to_status: string; actor: string }, idx: number) => (
                   <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary">
                     <span className="font-mono opacity-60 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
                     <span className="truncate">{entry.from_status} → {entry.to_status}</span>
@@ -203,16 +216,36 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             {new Date(task.due_date).toLocaleDateString()}
           </span>
         )}
+        {/* Owner badge */}
+        {task.owner && (
+          <span
+            title={`${task.owner} — ${OWNER_ROLES[task.owner] || 'Unknown'}`}
+            className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+            style={{ backgroundColor: OWNER_COLORS[task.owner] || '#6e7681' }}
+          >
+            {task.owner.charAt(0).toUpperCase()}
+          </span>
+        )}
         {isMobile ? (
-          <div className="relative">
+          <div className="relative flex gap-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setIsDropdownOpen(!isDropdownOpen);
+                handleEdit();
               }}
-              disabled={isPending}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 transition-colors disabled:opacity-50"
+              className="p-1.5 rounded hover:bg-panel-hover transition-colors"
             >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDropdownOpen(!isDropdownOpen);
+                }}
+                disabled={isPending}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 transition-colors disabled:opacity-50"
+              >
               <ArrowUpDown className="w-3 h-3" />
               <span>Status</span>
               <ChevronDown className={cn("w-3 h-3 transition-transform", isDropdownOpen && "rotate-180")} />
@@ -244,6 +277,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
                 ))}
               </div>
             )}
+          </div>
           </div>
         ) : (
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>

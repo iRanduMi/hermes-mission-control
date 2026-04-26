@@ -110,7 +110,7 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
                 </div>
 
                 {/* Status and Priority */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-[510] text-text-secondary mb-1">Status</label>
                     <select
@@ -159,16 +159,17 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
                 </div>
 
                 {/* Activity History */}
-                {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
+                {task && 'activity_log' in task && Array.isArray(task.activity_log) && task.activity_log.length > 0 && (
                   <div>
                     <label className="block text-xs font-[510] text-text-secondary mb-1">Activity History</label>
                     <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string }, idx: number) => (
+                      {task.activity_log.map((entry: { timestamp: string; from_status: string; to_status: string; actor: string }, idx: number) => (
                         <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary bg-panel/50 rounded px-2 py-1">
-                          <span className="font-mono opacity-60">{new Date(entry.timestamp).toLocaleString()}</span>
-                          <span className="truncate">
+                          <span className="font-mono opacity-60 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
+                          <span className="truncate shrink-0">
                             {entry.from_status} → {entry.to_status}
                           </span>
+                          <span className="shrink-0 text-[10px] text-text-muted opacity-70">by {entry.actor}</span>
                         </div>
                       ))}
                     </div>

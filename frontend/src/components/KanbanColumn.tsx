@@ -1,9 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { KanbanColumn as ColumnType } from '@/types';
-import { KanbanCard } from './KanbanCard';
+import { KanbanCard, type TaskData } from './KanbanCard';
 import { KanbanDropZone } from './KanbanDropZone';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EmptyState } from './EmptyState';
 import { Plus } from 'lucide-react';
@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChanged }: Props) {
+  const [showTooltip, setShowTooltip] = useState(false);
   const { setNodeRef, transform, transition } = useSortable({
     id: column.id,
     data: { type: 'column', column },
@@ -35,10 +36,32 @@ export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChan
     >
       {/* Column header */}
       <div className="p-3 pb-2 flex items-center justify-between border-b border-panel-border">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: column.accent || 'rgba(255,255,255,0.2)' }} />
-          <span className="text-sm font-[590] text-text-primary">{column.title}</span>
-          <span className="text-xs text-text-muted bg-panel px-1.5 py-0.5 rounded-full">{tasks.length}</span>
+        <div className="relative">
+          <div
+            className="flex items-center gap-2 cursor-help"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: column.accent || 'rgba(255,255,255,0.2)' }} />
+            <span className="text-sm font-[590] text-text-primary">{column.title}</span>
+            <span className="text-xs text-text-muted bg-panel px-1.5 py-0.5 rounded-full">{tasks.length}</span>
+          </div>
+          {showTooltip && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              className="absolute top-full left-0 z-50 mt-1.5 w-72 rounded-lg border border-panel-border bg-panel p-3 shadow-lg"
+              style={{ maxWidth: 'calc(100vw - 2rem)' }}
+            >
+              <p className="text-xs font-semibold text-text-secondary mb-1">{column.title}</p>
+              <p className="text-xs text-text-muted mb-2">{column.description}</p>
+              <p className="text-xs text-text-secondary">
+                <span className="font-semibold">Next:</span>{' '}
+                <span className="text-text-muted">{column.nextSteps}</span>
+              </p>
+            </motion.div>
+          )}
         </div>
         {onAddTask && (
           <motion.button
@@ -69,7 +92,7 @@ export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChan
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                  <KanbanCard task={task as unknown as import('@/components/KanbanCard').TaskData} onStatusChanged={onStatusChanged} />
+                  <KanbanCard task={task as unknown as TaskData} onStatusChanged={onStatusChanged} />
                 </motion.div>
               ))}
             </AnimatePresence>

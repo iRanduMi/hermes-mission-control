@@ -27,7 +27,7 @@ const DialogContent = React.forwardRef<
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
-        className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-xl border border-panel-border bg-canvas-subtle p-6 shadow-2xl"
+        className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg sm:max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-xl border border-panel-border bg-canvas-subtle p-4 sm:p-6 shadow-2xl max-h-[90dvh] overflow-y-auto touch-pan-y"
         {...props}
       >
       {children}
@@ -56,7 +56,7 @@ const DialogTitle = React.forwardRef<
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex items-center gap-2 mt-6', className)} {...props} />
+  <div className={cn('flex flex-col sm:flex-row items-center gap-2 mt-6', className)} {...props} />
 );
 
 const DialogDescription = DialogPrimitive.Description;
