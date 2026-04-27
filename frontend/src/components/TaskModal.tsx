@@ -21,6 +21,13 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
   const [labelsStr, setLabelsStr] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [subStatus, setSubStatus] = useState<'idle' | 'active' | 'blocked'>('idle');
+
+  const SUB_STATUS_OPTIONS = [
+    { value: 'idle', label: 'Idle', dot: 'bg-slate-400' },
+    { value: 'active', label: 'Active', dot: 'bg-blue-500' },
+    { value: 'blocked', label: 'Blocked', dot: 'bg-red-500' },
+  ];
 
   const createMutation = useCreateTask();
   const updateMutation = useUpdateTask();
@@ -35,6 +42,7 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
       setPriority(String(task.priority) as 'low' | 'medium' | 'high' | 'critical');
       setLabelsStr(Array.isArray(task.labels) ? (task.labels as string[]).join(', ') : '');
       setDueDate(task.due_date ? String(task.due_date) : '');
+      setSubStatus((task.sub_status as 'idle' | 'active' | 'blocked' | undefined) || 'idle');
     } else {
       setTitle('');
       setDescription('');
@@ -42,6 +50,7 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
       setPriority('medium');
       setLabelsStr('');
       setDueDate('');
+      setSubStatus('idle');
     }
   }, [task, isOpen]);
 
@@ -51,12 +60,12 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
     const validPriority = ['low', 'medium', 'high', 'critical'].includes(priority) ? priority : 'medium';
     if (task?.id) {
       updateMutation.mutate(
-        { id: String(task.id), data: { title: title.trim(), description, status, priority: validPriority, labels, due_date: dueDate || null } },
+        { id: String(task.id), data: { title: title.trim(), description, status, priority: validPriority, labels, due_date: dueDate || null, sub_status: subStatus } },
         { onSuccess: () => onClose() }
       );
     } else {
       createMutation.mutate(
-        { title: title.trim(), description, status, priority: validPriority, labels, due_date: dueDate || null },
+        { title: title.trim(), description, status, priority: validPriority, labels, due_date: dueDate || null, sub_status: subStatus },
         { onSuccess: () => onClose() }
       );
     }
@@ -83,7 +92,18 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             >
               <DialogHeader>
-                <DialogTitle className="text-text-primary">{task?.id ? 'Edit Task' : 'New Task'}</DialogTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <DialogTitle className="text-text-primary">{task?.id ? 'Edit Task' : 'New Task'}</DialogTitle>
+                  {subStatus !== 'idle' && task?.id && (() => {
+                    const dotColor = subStatus === 'active' ? '#58a6ff' : '#f85149';
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border" style={{ backgroundColor: `${dotColor}18`, color: dotColor, borderColor: `${dotColor}40` }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                        {subStatus.charAt(0).toUpperCase() + subStatus.slice(1)}
+                      </span>
+                    );
+                  })()}
+                </div>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -134,6 +154,20 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
                       <option value="critical">Critical</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Sub-Status */}
+                <div>
+                  <label className="block text-xs font-[510] text-text-secondary mb-1">Sub-Status</label>
+                  <select
+                    value={subStatus}
+                    onChange={e => setSubStatus(e.target.value as 'idle' | 'active' | 'blocked')}
+                    className="w-full px-3 py-2 rounded-lg border border-panel-border bg-panel text-text-primary text-sm focus:outline-none focus:border-accent"
+                  >
+                    {SUB_STATUS_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Labels */}

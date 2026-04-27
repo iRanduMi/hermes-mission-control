@@ -55,6 +55,22 @@ const OWNER_ROLES: Record<string, string> = {
   Jared: 'Reviewer',
 };
 
+// Sub-status badge colors — CSS variable based for theme support
+const SUB_STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  active: {
+    bg: 'rgba(88, 166, 255, 0.15)',
+    text: '#1a7f37',
+    border: 'rgba(88, 166, 255, 0.35)',
+    dot: '#58a6ff',
+  },
+  blocked: {
+    bg: 'rgba(248, 81, 73, 0.12)',
+    text: '#cf222e',
+    border: 'rgba(248, 81, 73, 0.35)',
+    dot: '#f85149',
+  },
+};
+
 export function KanbanCard({ task, onStatusChanged }: Props) {
   const { setSelectedTask, setIsModalOpen } = useKanban();
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
@@ -194,6 +210,18 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             {label}
           </span>
         ))}
+        {task.sub_status && task.sub_status !== 'idle' && (() => {
+          const config = SUB_STATUS_CONFIG[task.sub_status] || SUB_STATUS_CONFIG['active'];
+          return (
+            <span
+              className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-[510] rounded border flex items-center gap-1"
+              style={{ backgroundColor: config.bg, color: config.text, borderColor: config.border }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: config.dot }} />
+              <span className="capitalize">{task.sub_status}</span>
+            </span>
+          );
+        })()}
       </div>
       
       {/* Title */}
