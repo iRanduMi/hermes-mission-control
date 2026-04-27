@@ -6,6 +6,7 @@ import { KANBAN_COLUMNS } from '@/types';
 import type { TaskStatus } from '@/types';
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface Props {
   isOpen: boolean;
@@ -94,11 +95,13 @@ export function TaskModal({ isOpen, onClose, task }: Props) {
               <DialogHeader>
                 <div className="flex items-center gap-2 flex-wrap">
                   <DialogTitle className="text-text-primary">{task?.id ? 'Edit Task' : 'New Task'}</DialogTitle>
-                  {subStatus !== 'idle' && task?.id && (() => {
-                    const dotColor = subStatus === 'active' ? '#58a6ff' : '#f85149';
+                  {task?.id && (() => {
+                    const dotColor = subStatus === 'active' ? '#3fb950' : subStatus === 'blocked' ? '#f85149' : '#8b949e';
+                    const bgColor = subStatus === 'active' ? '#3fb95018' : subStatus === 'blocked' ? '#f8514918' : '#8b949e18';
+                    const borderColor = subStatus === 'active' ? '#3fb95040' : subStatus === 'blocked' ? '#f8514940' : '#8b949e40';
                     return (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border" style={{ backgroundColor: `${dotColor}18`, color: dotColor, borderColor: `${dotColor}40` }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border" style={{ backgroundColor: bgColor, color: dotColor, borderColor: borderColor }}>
+                        <span className={cn("w-1.5 h-1.5 rounded-full", subStatus === 'active' && "sub-status-pulse")} style={{ backgroundColor: dotColor }} />
                         {subStatus.charAt(0).toUpperCase() + subStatus.slice(1)}
                       </span>
                     );

@@ -57,11 +57,17 @@ const OWNER_ROLES: Record<string, string> = {
 
 // Sub-status badge colors — CSS variable based for theme support
 const SUB_STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  idle: {
+    bg: 'rgba(139, 148, 158, 0.12)',
+    text: '#6e7681',
+    border: 'rgba(139, 148, 158, 0.30)',
+    dot: '#8b949e',
+  },
   active: {
-    bg: 'rgba(88, 166, 255, 0.15)',
+    bg: 'rgba(63, 185, 80, 0.12)',
     text: '#1a7f37',
-    border: 'rgba(88, 166, 255, 0.35)',
-    dot: '#58a6ff',
+    border: 'rgba(63, 185, 80, 0.35)',
+    dot: '#3fb950',
   },
   blocked: {
     bg: 'rgba(248, 81, 73, 0.12)',
@@ -195,6 +201,16 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
           )}
         </div>
       )}
+      {/* Inline styles for sub-status pulse animation */}
+      <style>{`
+        @keyframes pulse-sub-status {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.4); }
+        }
+        .sub-status-pulse {
+          animation: pulse-sub-status 2s ease-in-out infinite;
+        }
+      `}</style>
       {/* Priority indicator & labels */}
       <div className="flex items-center gap-1.5 sm:gap-2 mb-2 flex-wrap">
         {task.priority && KNOWN_PRIORITIES.includes(task.priority as KnownPriority) && (
@@ -210,14 +226,18 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             {label}
           </span>
         ))}
-        {task.sub_status && task.sub_status !== 'idle' && (() => {
+        {task.sub_status && (() => {
           const config = SUB_STATUS_CONFIG[task.sub_status] || SUB_STATUS_CONFIG['active'];
+          const isPulsing = task.sub_status === 'active';
           return (
             <span
               className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-[510] rounded border flex items-center gap-1"
               style={{ backgroundColor: config.bg, color: config.text, borderColor: config.border }}
             >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: config.dot }} />
+              <span
+                className={cn("w-1.5 h-1.5 rounded-full shrink-0", isPulsing && "sub-status-pulse")}
+                style={{ backgroundColor: config.dot }}
+              />
               <span className="capitalize">{task.sub_status}</span>
             </span>
           );
