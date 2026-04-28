@@ -115,23 +115,6 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     setIsPopoverVisible(true);
   }, []);
 
-  // Delayed close for dropdown trigger — prevents dropdown flicker when cursor moves to menu
-  const handleTriggerPointerEnter = useCallback((e: React.PointerEvent) => {
-    e.stopPropagation();
-    setIsDropdownOpen(true);
-    if (dropdownLeaveTimerRef.current) {
-      clearTimeout(dropdownLeaveTimerRef.current);
-      dropdownLeaveTimerRef.current = null;
-    }
-  }, []);
-
-  const handleTriggerPointerLeave = useCallback((e: React.PointerEvent) => {
-    e.stopPropagation();
-    dropdownLeaveTimerRef.current = setTimeout(() => {
-      setIsDropdownOpen(false);
-    }, 100); // 100ms delay gives cursor time to reach dropdown menu items
-  }, []);
-
   // Cancel dropdown close timer when cursor enters the menu content
   const handleMenuPointerEnter = useCallback(() => {
     if (dropdownLeaveTimerRef.current) {
@@ -183,7 +166,16 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     >
       {/* Full description + activity history popover (desktop only) */}
       {!isMobile && isPopoverVisible && task.description && (
-        <div className="absolute z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:left-full sm:top-0 sm:translate-x-0 sm:translate-y-0 sm:ml-2">
+        <div
+          className="absolute z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:left-full sm:top-0 sm:translate-x-0 sm:translate-y-0 sm:ml-2"
+          onPointerEnter={() => {
+            if (popoverLeaveTimerRef.current) {
+              clearTimeout(popoverLeaveTimerRef.current);
+              popoverLeaveTimerRef.current = null;
+            }
+            setIsPopoverVisible(true);
+          }}
+        >
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
           {(task.activity_log && task.activity_log.length > 0) && (
             <div className="mt-3 pt-3 border-t border-panel-border">
@@ -333,8 +325,6 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             <DropdownMenuTrigger asChild>
               <button
                 className="p-1.5 sm:p-1 rounded hover:bg-panel-hover transition-opacity"
-                onPointerEnter={handleTriggerPointerEnter}
-                onPointerLeave={handleTriggerPointerLeave}
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
