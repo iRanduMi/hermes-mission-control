@@ -104,7 +104,7 @@ export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChan
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.15 }}
                 id={`bucket-info-${column.id}`}
-                className={`absolute left-0 z-50 mt-2 rounded-lg border border-panel-border bg-panel shadow-lg ${
+                className={`absolute left-0 z-50 mt-2 rounded-lg border border-panel-border bg-canvas-subtle shadow-lg ${
                   isMobile ? 'fixed bottom-4 left-4 right-4 top-auto w-auto max-h-[70vh] overflow-y-auto' : 'w-72'
                 }`}
                 style={
