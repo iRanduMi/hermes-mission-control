@@ -59,10 +59,10 @@ export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChan
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className="w-full sm:w-72 lg:w-80 flex flex-col max-h-full rounded-xl border border-panel-border bg-canvas-subtle/30 transition-colors"
+      className="w-full sm:w-72 lg:w-80 flex flex-col h-full overflow-hidden rounded-xl border border-panel-border bg-canvas-subtle/30 transition-colors"
     >
-      {/* Column header */}
-      <div className="p-3 pb-2 flex items-center justify-between border-b border-panel-border">
+      {/* Column header - shrinkable */}
+      <div className="p-3 pb-2 flex items-center justify-between border-b border-panel-border shrink-0">
         <div className="relative">
           {/* Click-to-open trigger */}
           <div
@@ -167,8 +167,8 @@ export function KanbanColumn({ column, tasks: tasksProp, onAddTask, onStatusChan
         )}
       </div>
 
-      {/* Drop zone */}
-      <div className="flex-1 overflow-y-auto p-2 min-h-[60px]">
+     {/* Drop zone - scrolls when content overflows */}
+      <div className="overflow-y-auto overflow-x-hidden p-2 lg:max-h-[calc(100vh-160px)]">
         <KanbanDropZone column={column}>
           {tasks.length === 0 ? (
             <EmptyState type="column" columnTitle={column.title} />
