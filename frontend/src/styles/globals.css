@@ -1,23 +1,55 @@
 @import "tailwindcss";
 
+/* Enable dark: variant for Tailwind utilities (class-based) */
+@variant dark {
+  &:where(.dark, .dark *);
+}
+
 @theme {
-  --color-canvas: #08090a;
-  --color-canvas-subtle: #0c0d0f;
-  --color-panel: rgba(255, 255, 255, 0.02);
-  --color-panel-border: rgba(255, 255, 255, 0.08);
-  --color-panel-hover: rgba(255, 255, 255, 0.04);
+  --color-canvas: #f6f8fa;
+  --color-canvas-subtle: #ffffff;
+  --color-panel: rgba(0, 0, 0, 0.04);
+  --color-panel-border: rgba(0, 0, 0, 0.12);
+  --color-panel-hover: rgba(0, 0, 0, 0.06);
   --color-accent: #7170ff;
-  --color-accent-subtle: rgba(113, 112, 255, 0.15);
-  --color-text-primary: rgba(255, 255, 255, 0.95);
-  --color-text-secondary: rgba(255, 255, 255, 0.65);
-  --color-text-muted: rgba(255, 255, 255, 0.40);
+  --color-accent-subtle: rgba(113, 112, 255, 0.12);
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: rgba(0, 0, 0, 0.55);
+  --color-text-muted: rgba(0, 0, 0, 0.35);
+  --color-border: rgba(0, 0, 0, 0.10);
+  --color-low: #1a7f37;
+  --color-medium: #9a6700;
+  --color-high: #cf222e;
+  --color-critical: #da3633;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Dark mode theme — applied when .dark class is on <html> */
+.dark {
+  --color-canvas: #0a0a0f;
+  --color-canvas-subtle: #0e0e16;
+  --color-panel: rgba(255, 255, 255, 0.03);
+  --color-panel-border: rgba(255, 255, 255, 0.08);
+  --color-panel-hover: rgba(255, 255, 255, 0.06);
+  --color-accent: #8b8bff;
+  --color-accent-subtle: rgba(139, 139, 255, 0.18);
+  --color-text-primary: rgba(240, 240, 245, 0.95);
+  --color-text-secondary: rgba(200, 200, 210, 0.65);
+  --color-text-muted: rgba(160, 160, 175, 0.40);
   --color-border: rgba(255, 255, 255, 0.08);
   --color-low: #3fb950;
   --color-medium: #d29922;
   --color-high: #f97583;
   --color-critical: #eb4d4b;
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Light mode scrollbar */
+:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 @font-face {

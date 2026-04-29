@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useKanban } from './KanbanProvider';
 import { cn } from '@/lib/utils';
 import {
@@ -10,18 +10,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Calendar, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { MoreHorizontal, Calendar, ChevronDown, ArrowUpDown, Pencil } from 'lucide-react';
 import { KANBAN_COLUMNS } from '@/types';
 import { useUpdateTask } from '@/hooks/useTasks';
 
-interface TaskData {
+export interface TaskData {
   id: string;
   title: string;
   description: string;
   status: string;
   priority: string;
   labels: string[];
-  activity_log?: Array<{ timestamp: string; from_status: string; to_status: string }>;
+  activity_log?: Array<{ timestamp: string; from_status: string; to_status: string; actor: string }>;
+  owner?: string;
+  sub_status?: string;
   due_date?: string;
   column_order: number;
 }
@@ -41,9 +43,43 @@ const PRIORITY_COLORS: Record<string, string> = {
   critical: 'bg-critical/15 text-critical border-critical/20',
 };
 
+const OWNER_COLORS: Record<string, string> = {
+  Hermes: '#58a6ff',
+  Dex: '#a371f7',
+  Jared: '#3fb950',
+};
+
+const OWNER_ROLES: Record<string, string> = {
+  Hermes: 'Planner',
+  Dex: 'Builder',
+  Jared: 'Reviewer',
+};
+
+// Sub-status badge colors — CSS variable based for theme support
+const SUB_STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  idle: {
+    bg: 'rgba(139, 148, 158, 0.12)',
+    text: '#6e7681',
+    border: 'rgba(139, 148, 158, 0.30)',
+    dot: '#8b949e',
+  },
+  active: {
+    bg: 'rgba(63, 185, 80, 0.12)',
+    text: '#1a7f37',
+    border: 'rgba(63, 185, 80, 0.35)',
+    dot: '#3fb950',
+  },
+  blocked: {
+    bg: 'rgba(248, 81, 73, 0.12)',
+    text: '#cf222e',
+    border: 'rgba(248, 81, 73, 0.35)',
+    dot: '#f85149',
+  },
+};
+
 export function KanbanCard({ task, onStatusChanged }: Props) {
   const { setSelectedTask, setIsModalOpen } = useKanban();
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPopoverVisible, setIsPopoverVisible] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const { mutate: updateTask, isPending } = useUpdateTask();
@@ -52,9 +88,44 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
     disabled: isMobile,
   });
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedTask(task);
+  // Delay close refs to prevent flickering when cursor moves between card and dropdown/popover
+  const popoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (popoverLeaveTimerRef.current) clearTimeout(popoverLeaveTimerRef.current);
+      if (dropdownLeaveTimerRef.current) clearTimeout(dropdownLeaveTimerRef.current);
+    };
+  }, []);
+
+  // Delayed close for card pointer leave — prevents popover flicker when cursor moves to trigger
+  const handleCardPointerLeave = useCallback(() => {
+    popoverLeaveTimerRef.current = setTimeout(() => {
+      setIsPopoverVisible(false);
+    }, 80); // 80ms delay gives cursor time to reach popover without triggering close
+  }, []);
+
+  const handleCardPointerEnter = useCallback(() => {
+    if (popoverLeaveTimerRef.current) {
+      clearTimeout(popoverLeaveTimerRef.current);
+      popoverLeaveTimerRef.current = null;
+    }
+    setIsPopoverVisible(true);
+  }, []);
+
+  // Cancel dropdown close timer when cursor enters the menu content
+  const handleMenuPointerEnter = useCallback(() => {
+    if (dropdownLeaveTimerRef.current) {
+      clearTimeout(dropdownLeaveTimerRef.current);
+      dropdownLeaveTimerRef.current = null;
+    }
+    setIsDropdownOpen(true);
+  }, []);
+
+  const handleEdit = () => {
+    setSelectedTask(task as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -65,7 +136,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
       id: '',
       title: `${task.title} (copy)`,
       labels: [...task.labels],
-    });
+    } as unknown as Record<string, unknown>);
     setIsModalOpen(true);
   };
 
@@ -84,29 +155,37 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
         'group relative p-2.5 sm:p-3 rounded-lg border border-panel-border bg-panel hover:bg-panel-hover cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-70 shadow-xl'
       )}
-      layout
-      initial={{ opacity: 0, scale: 0.95, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      whileHover={{ scale: 1.01 }}
       {...attributes}
       {...listeners}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onPointerEnter={isMobile ? undefined : handleCardPointerEnter}
+      onPointerLeave={isMobile ? undefined : handleCardPointerLeave}
+      onClick={isMobile ? () => { setSelectedTask(task as unknown as Record<string, unknown>); setIsModalOpen(true); } : undefined}
     >
-      {/* Full description + activity history popover */}
-      {isHovered && task.description && (
-        <div className="absolute z-50 left-full top-0 ml-2 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary">
+      {/* Full description + activity history popover (desktop only) */}
+      {!isMobile && isPopoverVisible && task.description && (
+        <div
+          className="absolute z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-panel-border bg-canvas-subtle p-4 shadow-xl text-sm text-text-primary left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 sm:left-full sm:top-0 sm:translate-x-0 sm:translate-y-0 sm:ml-2"
+          onPointerEnter={() => {
+            if (popoverLeaveTimerRef.current) {
+              clearTimeout(popoverLeaveTimerRef.current);
+              popoverLeaveTimerRef.current = null;
+            }
+            setIsPopoverVisible(true);
+          }}
+        >
           <div className="whitespace-pre-wrap break-words">{task.description}</div>
-          {(task as Record<string, unknown>)?.activity_log && (task as Record<string, unknown>).activity_log.length > 0 && (
+          {(task.activity_log && task.activity_log.length > 0) && (
             <div className="mt-3 pt-3 border-t border-panel-border">
               <div className="text-xs font-medium text-text-secondary mb-1.5">Activity History</div>
               <div className="space-y-1">
-                {(task as Record<string, unknown>).activity_log.map((entry: { timestamp: string; from_status: string; to_status: string }, idx: number) => (
+                {task.activity_log.map((entry: { timestamp: string; from_status: string; to_status: string; actor: string }, idx: number) => (
                   <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary">
                     <span className="font-mono opacity-60 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
                     <span className="truncate">{entry.from_status} → {entry.to_status}</span>
+                    <span className="shrink-0 text-[10px] text-text-muted opacity-70">by {entry.actor}</span>
                   </div>
                 ))}
               </div>
@@ -114,6 +193,16 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
           )}
         </div>
       )}
+      {/* Inline styles for sub-status pulse animation */}
+      <style>{`
+        @keyframes pulse-sub-status {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.4); }
+        }
+        .sub-status-pulse {
+          animation: pulse-sub-status 2s ease-in-out infinite;
+        }
+      `}</style>
       {/* Priority indicator & labels */}
       <div className="flex items-center gap-1.5 sm:gap-2 mb-2 flex-wrap">
         {task.priority && KNOWN_PRIORITIES.includes(task.priority as KnownPriority) && (
@@ -129,6 +218,22 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             {label}
           </span>
         ))}
+        {task.sub_status && (() => {
+          const config = SUB_STATUS_CONFIG[task.sub_status] || SUB_STATUS_CONFIG['active'];
+          const isPulsing = task.sub_status === 'active';
+          return (
+            <span
+              className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-[510] rounded border flex items-center gap-1"
+              style={{ backgroundColor: config.bg, color: config.text, borderColor: config.border }}
+            >
+              <span
+                className={cn("w-1.5 h-1.5 rounded-full shrink-0", isPulsing && "sub-status-pulse")}
+                style={{ backgroundColor: config.dot }}
+              />
+              <span className="capitalize">{task.sub_status}</span>
+            </span>
+          );
+        })()}
       </div>
       
       {/* Title */}
@@ -152,19 +257,39 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
             {new Date(task.due_date).toLocaleDateString()}
           </span>
         )}
+        {/* Owner badge */}
+        {task.owner && (
+          <span
+            title={`${task.owner} — ${OWNER_ROLES[task.owner] || 'Unknown'}`}
+            className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+            style={{ backgroundColor: OWNER_COLORS[task.owner] || '#6e7681' }}
+          >
+            {task.owner.charAt(0).toUpperCase()}
+          </span>
+        )}
         {isMobile ? (
-          <div className="relative">
+          <div className="relative flex gap-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setIsDropdownOpen(!isDropdownOpen);
+                handleEdit();
               }}
-              disabled={isPending}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 transition-colors disabled:opacity-50"
+              className="p-2 rounded hover:bg-panel-hover transition-colors active:bg-panel-hover"
             >
-              <ArrowUpDown className="w-3 h-3" />
+              <Pencil className="w-4 h-4" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDropdownOpen(!isDropdownOpen);
+                }}
+                disabled={isPending}
+                className="flex items-center gap-1 px-3 py-2 text-xs font-medium bg-panel-hover border border-panel-border rounded-md hover:bg-panel-hover/80 active:bg-panel-hover transition-colors disabled:opacity-50"
+              >
+              <ArrowUpDown className="w-4 h-4" />
               <span>Status</span>
-              <ChevronDown className={cn("w-3 h-3 transition-transform", isDropdownOpen && "rotate-180")} />
+              <ChevronDown className={cn("w-4 h-4 transition-transform", isDropdownOpen && "rotate-180")} />
             </button>
             {isDropdownOpen && (
               <div
@@ -177,7 +302,7 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
                     onClick={() => handleStatusChange(col.id)}
                     disabled={task.status === col.id || isPending}
                     className={cn(
-                      "flex items-center gap-2 w-full px-3 py-2 text-left text-xs transition-colors",
+                      "flex items-center gap-2 w-full px-3 py-3 text-left text-xs transition-colors",
                       task.status === col.id
                         ? "bg-accent-subtle text-text-primary font-medium"
                         : "hover:bg-panel-hover text-text-secondary",
@@ -194,14 +319,17 @@ export function KanbanCard({ task, onStatusChanged }: Props) {
               </div>
             )}
           </div>
+          </div>
         ) : (
-          <DropdownMenu open={isHovered}>
+          <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <button className="p-1.5 sm:p-1 rounded hover:bg-panel-hover transition-opacity">
+              <button
+                className="p-1.5 sm:p-1 rounded hover:bg-panel-hover transition-opacity"
+              >
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent onPointerEnter={handleMenuPointerEnter} align="end" className="w-40">
               <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate}>Duplicate</DropdownMenuItem>
             </DropdownMenuContent>

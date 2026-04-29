@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Search, X } from 'lucide-react';
+import { Search, X, Moon, Sun } from 'lucide-react';
 import { useState, createContext, useContext, useEffect, useRef } from 'react';
 import KanbanBoard from './components/KanbanBoard';
 import MonitoringPage from './components/MonitoringPage';
@@ -35,12 +35,37 @@ function SearchProvider({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  // Listen for system preference changes
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        setDark(e.matches);
+      }
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  const toggleDark = () => setDark(d => !d);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SearchProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-canvas flex flex-col">
-            <HeaderInner />
+            <HeaderInner onToggleDark={toggleDark} isDark={dark} />
             <Routes>
               <Route path="/" element={<KanbanBoard />} />
               <Route path="/monitoring" element={<MonitoringPage />} />
@@ -53,7 +78,7 @@ function App() {
   );
 }
 
-function HeaderInner() {
+function HeaderInner({ onToggleDark, isDark }: { onToggleDark: () => void; isDark: boolean }) {
   const { searchQuery, setSearchQuery } = useSearch();
   const location = useLocation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -117,6 +142,15 @@ function HeaderInner() {
           </Link>
         ))}
       </nav>
+
+      <button
+        onClick={onToggleDark}
+        className="shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-panel-hover transition-colors"
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </button>
     </header>
   );
 }
